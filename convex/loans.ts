@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { internal } from "./_generated/api";
 import { requireAdmin, requireAuth } from "./_helpers";
 
@@ -44,45 +45,50 @@ export const myActiveRequest = query({
 });
 
 export const listMine = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
     const user = await requireAuth(ctx);
-    const loans = await ctx.db
+    const result = await ctx.db
       .query("loans")
       .withIndex("by_borrowerId", (q) => q.eq("borrowerId", user._id))
-      .collect();
+      .paginate(paginationOpts);
 
-    // Attach tool name for display
-    return await Promise.all(
-      loans.map(async (loan) => {
-        const tool = await ctx.db.get(loan.toolId);
-        return { ...loan, toolName: tool?.name ?? "Unknown" };
-      }),
-    );
+    return {
+      ...result,
+      page: await Promise.all(
+        result.page.map(async (loan) => {
+          const tool = await ctx.db.get(loan.toolId);
+          return { ...loan, toolName: tool?.name ?? "Unknown" };
+        }),
+      ),
+    };
   },
 });
 
 export const listIncoming = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
     const user = await requireAuth(ctx);
-    const loans = await ctx.db
+    const result = await ctx.db
       .query("loans")
       .withIndex("by_ownerId", (q) => q.eq("ownerId", user._id))
-      .collect();
+      .paginate(paginationOpts);
 
-    return await Promise.all(
-      loans.map(async (loan) => {
-        const tool = await ctx.db.get(loan.toolId);
-        const borrower = await ctx.db.get(loan.borrowerId);
-        return {
-          ...loan,
-          toolName: tool?.name ?? "Unknown",
-          borrowerName: borrower?.name ?? "Unknown",
-          borrowerEmail: borrower?.email ?? "",
-        };
-      }),
-    );
+    return {
+      ...result,
+      page: await Promise.all(
+        result.page.map(async (loan) => {
+          const tool = await ctx.db.get(loan.toolId);
+          const borrower = await ctx.db.get(loan.borrowerId);
+          return {
+            ...loan,
+            toolName: tool?.name ?? "Unknown",
+            borrowerName: borrower?.name ?? "Unknown",
+            borrowerEmail: borrower?.email ?? "",
+          };
+        }),
+      ),
+    };
   },
 });
 

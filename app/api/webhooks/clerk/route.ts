@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rateLimit";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
@@ -16,6 +17,11 @@ type ClerkUserEvent = {
 };
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+  if (!rateLimit(`clerk:${ip}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
   if (!webhookSecret) {
     return NextResponse.json({ error: "CLERK_WEBHOOK_SECRET not set" }, { status: 500 });

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verify } from "@/lib/hmac";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+  if (!rateLimit(`n8n:${ip}`, 60, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const signature = req.headers.get("x-webhook-signature") ?? "";
   const secret = process.env.CONVEX_WEBHOOK_SECRET;
 

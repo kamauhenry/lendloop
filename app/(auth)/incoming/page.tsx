@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { LoanStatusBadge } from "@/components/LoanStatusBadge";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -8,7 +8,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 type UpdateStatus = "approved" | "declined" | "returned";
 
 export default function IncomingPage() {
-  const loans = useQuery(api.loans.listIncoming);
+  const { results: loans, status, loadMore } = usePaginatedQuery(api.loans.listIncoming, {}, { initialNumItems: 20 });
   const updateStatus = useMutation(api.loans.updateStatus);
 
   async function handle(loanId: Id<"loans">, status: UpdateStatus) {
@@ -19,7 +19,7 @@ export default function IncomingPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Incoming Requests</h1>
 
-      {loans === undefined && (
+      {status === "LoadingFirstPage" && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
@@ -27,11 +27,11 @@ export default function IncomingPage() {
         </div>
       )}
 
-      {loans?.length === 0 && (
+      {status !== "LoadingFirstPage" && loans.length === 0 && (
         <p className="text-gray-400 text-sm">No incoming requests.</p>
       )}
 
-      {loans && loans.length > 0 && (
+      {loans.length > 0 && (
         <div className="space-y-3">
           {loans.map((loan) => (
             <div
@@ -78,6 +78,16 @@ export default function IncomingPage() {
               </div>
             </div>
           ))}
+          {status === "CanLoadMore" && (
+            <div className="pt-2 text-center">
+              <button
+                onClick={() => loadMore(20)}
+                className="px-4 py-2 bg-white border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Load more
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

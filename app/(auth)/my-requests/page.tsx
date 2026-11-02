@@ -1,19 +1,19 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { LoanStatusBadge } from "@/components/LoanStatusBadge";
 import type { Id } from "@/convex/_generated/dataModel";
 
 export default function MyRequestsPage() {
-  const loans = useQuery(api.loans.listMine);
+  const { results: loans, status, loadMore } = usePaginatedQuery(api.loans.listMine, {}, { initialNumItems: 20 });
   const updateStatus = useMutation(api.loans.updateStatus);
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">My Requests</h1>
 
-      {loans === undefined && (
+      {status === "LoadingFirstPage" && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
@@ -21,13 +21,13 @@ export default function MyRequestsPage() {
         </div>
       )}
 
-      {loans?.length === 0 && (
+      {status !== "LoadingFirstPage" && loans.length === 0 && (
         <p className="text-gray-400 text-sm">
           You haven&apos;t requested any tools yet. Browse all tools to make a request.
         </p>
       )}
 
-      {loans && loans.length > 0 && (
+      {loans.length > 0 && (
         <div className="space-y-3">
           {loans.map((loan) => (
             <div
@@ -53,6 +53,16 @@ export default function MyRequestsPage() {
               </div>
             </div>
           ))}
+          {status === "CanLoadMore" && (
+            <div className="pt-2 text-center">
+              <button
+                onClick={() => loadMore(20)}
+                className="px-4 py-2 bg-white border border-gray-200 text-sm text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Load more
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
