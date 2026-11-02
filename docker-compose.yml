@@ -1,0 +1,32 @@
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # web UI — open http://localhost:8025 to see caught emails
+      - "1025:1025"   # SMTP — n8n sends here, nothing leaves the machine
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      - WEBHOOK_URL=http://localhost:5678
+      # Env vars available inside n8n workflows via $env.*
+      - CONVEX_WEBHOOK_SECRET=${CONVEX_WEBHOOK_SECRET}
+      - N8N_OVERDUE_TOKEN=${N8N_OVERDUE_TOKEN}
+      - CONVEX_HTTP_URL=${NEXT_PUBLIC_CONVEX_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      # On Linux, host-gateway resolves to the Docker bridge IP.
+      # If that fails, set CONVEX_HTTP_HOST in .env.local to your LAN IP (e.g. 192.168.x.x)
+      # and update the workflow URLs accordingly.
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:

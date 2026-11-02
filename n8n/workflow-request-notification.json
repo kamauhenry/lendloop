@@ -1,0 +1,143 @@
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "LendLoop — Request Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "loan-event",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "webhookId": "f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// HMAC verified by Convex before dispatching; port 5678 is localhost-only.\nconsole.log('[LendLoop] Incoming event:', $input.first().body?.event);\nreturn $input.all();"
+      },
+      "id": "verify-signature",
+      "name": "Verify HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.event }}",
+        "rules": {
+          "rules": [
+            { "value2": "pending" },
+            { "value2": "approved" },
+            { "value2": "declined" },
+            { "value2": "returned" }
+          ]
+        }
+      },
+      "id": "switch-event",
+      "name": "Switch on event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@lendloop.local",
+        "toEmail": "={{ $json.body.borrowerEmail }}",
+        "subject": "LendLoop — Borrow request received",
+        "text": "Hi {{ $json.body.borrowerName }},\n\nYour request to borrow '{{ $json.body.toolName }}' from {{ $json.body.ownerName }} has been received and is pending approval.\n\nDates: {{ $json.body.startDate }} → {{ $json.body.endDate }}\n\nLendLoop"
+      },
+      "id": "email-pending",
+      "name": "Email: Pending",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 160],
+      "credentials": {
+        "smtp": {
+          "id": "lendloop-smtp",
+          "name": "LendLoop SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@lendloop.local",
+        "toEmail": "={{ $json.body.borrowerEmail }}",
+        "subject": "LendLoop — Borrow request approved ✓",
+        "text": "Hi {{ $json.body.borrowerName }},\n\nGreat news — your request to borrow '{{ $json.body.toolName }}' has been approved!\n\nPick-up: {{ $json.body.startDate }}\nReturn by: {{ $json.body.endDate }}\n\nLendLoop"
+      },
+      "id": "email-approved",
+      "name": "Email: Approved",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 280],
+      "credentials": {
+        "smtp": {
+          "id": "lendloop-smtp",
+          "name": "LendLoop SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@lendloop.local",
+        "toEmail": "={{ $json.body.borrowerEmail }}",
+        "subject": "LendLoop — Borrow request declined",
+        "text": "Hi {{ $json.body.borrowerName }},\n\nUnfortunately your request to borrow '{{ $json.body.toolName }}' was declined by the owner.\n\nLendLoop"
+      },
+      "id": "email-declined",
+      "name": "Email: Declined",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 400],
+      "credentials": {
+        "smtp": {
+          "id": "lendloop-smtp",
+          "name": "LendLoop SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@lendloop.local",
+        "toEmail": "={{ $json.body.ownerEmail }}",
+        "subject": "LendLoop — '{{ $json.body.toolName }}' has been returned",
+        "text": "Hi {{ $json.body.ownerName }},\n\n'{{ $json.body.toolName }}' has been marked as returned by {{ $json.body.borrowerName }}. It's available for lending again.\n\nLendLoop"
+      },
+      "id": "email-returned",
+      "name": "Email: Returned",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 520],
+      "credentials": {
+        "smtp": {
+          "id": "lendloop-smtp",
+          "name": "LendLoop SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Verify HMAC", "type": "main", "index": 0 }]]
+    },
+    "Verify HMAC": {
+      "main": [[{ "node": "Switch on event", "type": "main", "index": 0 }]]
+    },
+    "Switch on event": {
+      "main": [
+        [{ "node": "Email: Pending",  "type": "main", "index": 0 }],
+        [{ "node": "Email: Approved", "type": "main", "index": 0 }],
+        [{ "node": "Email: Declined", "type": "main", "index": 0 }],
+        [{ "node": "Email: Returned", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {}
+}
